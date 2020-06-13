@@ -360,12 +360,14 @@ QState WifiSt::Normal(WifiSt * const me, QEvt const * const e) {
         }
         case WIFI_MAC_ADDRESS_REQ: {
         	EVENT(e);
+
         	WifiMacAddressReq* req = (WifiMacAddressReq*)e;
         	me->m_macAddressRequester = req->GetFrom();
+
         	char cmd[50];
 			snprintf(cmd, sizeof(cmd), "at+s.gcfg=nv_wifi_macaddr\n\r");
-			LOG(cmd);
 			me->Write(cmd);
+
 			return Q_HANDLED();
         }
         case WIFI_INTERACTIVE_ON_REQ: {
@@ -394,9 +396,11 @@ QState WifiSt::Normal(WifiSt * const me, QEvt const * const e) {
         case WIFI_DISCONNECT_REQ: {
             EVENT(e);
             WifiDisconnectReq const &req = static_cast<WifiDisconnectReq const &>(*e);
+
             char cmd[100];
             snprintf(cmd, sizeof(cmd), "at+s.sockc=%d\n\r", 0);
             me->Write(cmd);
+
             Evt* evt = new WifiDisconnectCfm(req.GetFrom(), GET_HSMN(), req.GetSeq(), ERROR_SUCCESS);
             Fw::Post(evt);
             return Q_TRAN(&WifiSt::Disconnected);
@@ -415,13 +419,12 @@ QState WifiSt::Normal(WifiSt * const me, QEvt const * const e) {
         			Fw::Post(evt);
         		}
         		if(strstr(buf, MAC_ADDRESS_SIGNAL)) {
-        			LOG("got mac");
 					char * data = strstr(buf, MAC_ADDRESS_SIGNAL);
 					data = strstr(data, "=");
 					char * macAddress = data + 1;
 					macAddress[18] = 0;
-					LOG(macAddress);
-					LOG("%d", me->m_macAddressRequester);
+					LOG("received mac address from wifi module: %s", macAddress);
+
 					Evt * e = new WifiMacAddressCfm(me->m_macAddressRequester, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS, macAddress);
 					Fw::Post(e);
 					me->m_macAddressRequester = HSM_UNDEF;
@@ -460,11 +463,13 @@ QState WifiSt::Connected(WifiSt * const me, QEvt const * const e) {
         case WIFI_SEND_REQ: {
             EVENT(e);
             WifiSendReq const &req = static_cast<WifiSendReq const &>(*e);
+
             char cmd[150];
             char const *data = req.GetData();
             LOG("Send '%s'", data);
             snprintf(cmd, sizeof(cmd), "at+s.sockw=0,%d\n\r%s", strlen(data), data);
             me->Write(cmd);
+
             Evt* evt = new WifiSendCfm(req.GetFrom(), GET_HSMN(), req.GetSeq(), ERROR_SUCCESS);
             Fw::Post(evt);
             return Q_HANDLED();
@@ -485,10 +490,6 @@ QState WifiSt::Connected(WifiSt * const me, QEvt const * const e) {
                 	Fw::Post(evt);
                 }
                 if(strstr(buf, WIFI_UP_SIGNAL)) {
-					// TODO: Change TRAFFIC to correct HSM when available
-					LOG("GOT WIFI UP");
-					//Evt* evt = new WifiDisconnectReq(GET_HSMN(), GET_HSMN(), GEN_SEQ());
-					//me->PostSync(evt);
 					Evt* evt = new WifiUp(SIMPLE_ACT, GET_HSMN(), GEN_SEQ());
 					Fw::Post(evt);
 				}
@@ -499,6 +500,7 @@ QState WifiSt::Connected(WifiSt * const me, QEvt const * const e) {
                 if(strstr(buf, SOCKET_NOT_CONNECTED)) {
                 	Evt* evt = new WifiDisconnectCfm(SIMPLE_ACT, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS);
                 	Fw::Post(evt);
+
                 	char cmd[100];
 					snprintf(cmd, sizeof(cmd), "at+s.sockc=%d\n\r", 0);
 					me->Write(cmd);
