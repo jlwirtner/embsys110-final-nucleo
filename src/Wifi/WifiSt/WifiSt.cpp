@@ -381,19 +381,15 @@ QState WifiSt::Normal(WifiSt * const me, QEvt const * const e) {
             EVENT(e);
             WifiConnectReq const &req = static_cast<WifiConnectReq const &>(*e);
             LOG("Connecting to %s:%d", req.GetDomain(), req.GetPort());
+
             char cmd[100];
             snprintf(cmd, sizeof(cmd), "at+s.sockon=%s,%d,,t\n\r", req.GetDomain(), req.GetPort());
             me->Write(cmd);
-            me->m_stateTimer.Start(1000);
 
-            return Q_HANDLED();
-
-        }
-        case STATE_TIMER: {
-        	EVENT(e);
-        	Evt* evt = new WifiConnectCfm(SIMPLE_ACT, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS);
+            Evt* evt = new WifiConnectCfm(SIMPLE_ACT, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS);
 			Fw::Post(evt);
 			return Q_TRAN(&WifiSt::Connected);
+
         }
         case WIFI_DISCONNECT_REQ: {
             EVENT(e);
