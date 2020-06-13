@@ -459,6 +459,7 @@ QState SimpleAct::Registered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case Q_EXIT_SIG: {
 			EVENT(e);
+			me->m_stateTimer.Stop();
 			return Q_HANDLED();
 		}
 		case Q_INIT_SIG: {

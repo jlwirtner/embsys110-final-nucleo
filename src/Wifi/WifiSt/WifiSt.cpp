@@ -54,6 +54,7 @@ const char * WIFI_UP_SIGNAL = "+WIND:24";
 const char * MAC_ADDRESS_SIGNAL = "nv_wifi_macaddr=";
 const char * SHOCK_SENSOR_HANDSHAKE = "SENSOR-CONNECTED";
 const char * SHOCK_SENSOR_RESET_MSG = "SENSOR-RESET";
+const char * SOCKET_NOT_CONNECTED = "AT-S.ERROR:78";
 
 namespace APP {
 
@@ -498,6 +499,15 @@ QState WifiSt::Connected(WifiSt * const me, QEvt const * const e) {
                 if(strstr(buf, SHOCK_SENSOR_RESET_MSG)) {
                 	Evt* evt = new ShockSensorReset(SIMPLE_ACT, GET_HSMN(), GEN_SEQ());
                 	Fw::Post(evt);
+                }
+                if(strstr(buf, SOCKET_NOT_CONNECTED)) {
+                	Evt* evt = new WifiDisconnectCfm(SIMPLE_ACT, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS);
+                	Fw::Post(evt);
+                	char cmd[100];
+					snprintf(cmd, sizeof(cmd), "at+s.sockc=%d\n\r", 0);
+					me->Write(cmd);
+					return Q_TRAN(&WifiSt::Disconnected);
+
                 }
             }
             return Q_HANDLED();
