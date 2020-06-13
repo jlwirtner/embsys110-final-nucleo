@@ -394,13 +394,13 @@ QState SimpleAct::Unregistered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case SHOCK_SENSOR_HANDSHAKE_CFM: {
 			EVENT(e);
-			me->m_retryTimer.Stop();
+			//me->m_retryTimer.Stop();
 			return Q_TRAN(&SimpleAct::Registered);
 		}
-		case RETRY_TIMER: {
-			EVENT(e);
-			return Q_TRAN(&SimpleAct::Disconnected);
-		}
+//		case RETRY_TIMER: {
+//			EVENT(e);
+//			return Q_TRAN(&SimpleAct::Disconnected);
+//		}
 	}
 	return Q_SUPER(&SimpleAct::Connected);
 }
