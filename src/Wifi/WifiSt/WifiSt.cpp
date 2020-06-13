@@ -52,7 +52,7 @@ FW_DEFINE_THIS_FILE("WifiSt.cpp")
 
 const char * WIFI_UP_SIGNAL = "+WIND:24";
 const char * MAC_ADDRESS_SIGNAL = "nv_wifi_macaddr=";
-const char * SHOCK_SENSOR_HANDSHAKE = "SENSOR-CONNECT";
+const char * SHOCK_SENSOR_HANDSHAKE = "SENSOR-CONNECTED";
 
 namespace APP {
 
@@ -328,8 +328,8 @@ QState WifiSt::Started(WifiSt * const me, QEvt const * const e) {
         case Q_ENTRY_SIG: {
             EVENT(e);
             me->m_outIfHsmn = UartAct::GetUartOutHsmn(me->m_ifHsmn);
-            LOG("RESETING WIFI");
-            me->Write("at+cfun=1\n\r");
+            //LOG("RESETING WIFI");
+            //me->Write("at+cfun=1\n\r");
             return Q_HANDLED();
         }
         case Q_EXIT_SIG: {
@@ -382,9 +382,16 @@ QState WifiSt::Normal(WifiSt * const me, QEvt const * const e) {
             char cmd[100];
             snprintf(cmd, sizeof(cmd), "at+s.sockon=%s,%d,,t\n\r", req.GetDomain(), req.GetPort());
             me->Write(cmd);
-            Evt* evt = new WifiConnectCfm(req.GetFrom(), GET_HSMN(), req.GetSeq(), ERROR_SUCCESS);
-            Fw::Post(evt);
-            return Q_TRAN(&WifiSt::Connected);
+            me->m_stateTimer.Start(1000);
+
+            return Q_HANDLED();
+
+        }
+        case STATE_TIMER: {
+        	EVENT(e);
+        	Evt* evt = new WifiConnectCfm(SIMPLE_ACT, GET_HSMN(), GEN_SEQ(), ERROR_SUCCESS);
+			Fw::Post(evt);
+			return Q_TRAN(&WifiSt::Connected);
         }
         case WIFI_DISCONNECT_REQ: {
             EVENT(e);

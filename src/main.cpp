@@ -169,7 +169,7 @@ int main(void)
     Log::SetVerbosity(4);
     Log::OnAll();
     Log::Off(UART2_IN);
-    //Log::Off(UART1_IN);
+    Log::Off(UART1_IN);
     Log::Off(UART2_OUT);
     Log::Off(UART1_OUT);
     Log::Off(CMD_INPUT_UART2);

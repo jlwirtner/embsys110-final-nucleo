@@ -72,7 +72,8 @@ static char const * const interfaceEvtName[] = {
 SimpleAct::SimpleAct() :
     Active((QStateHandler)&SimpleAct::InitialPseudoState, SIMPLE_ACT, "SIMPLE_ACT"),
     m_stateTimer(GetHsm().GetHsmn(), STATE_TIMER),
-	m_retryTimer(GetHsm().GetHsmn(), RETRY_TIMER), m_macAddressSet(false), m_sensorEnabled(false) {
+	m_retryTimer(GetHsm().GetHsmn(), RETRY_TIMER), m_macAddressSet(false),
+	m_sensorEnabled(false), m_shockEventSeq(0) {
 	STRING_COPY(m_macAddress, INIT_MAC_ADDRESS, sizeof(m_macAddress));
     SET_EVT_NAME(SIMPLE_ACT);
 }
@@ -348,10 +349,10 @@ QState SimpleAct::Started(SimpleAct * const me, QEvt const * const e) {
         	EVENT(e);
         	return Q_TRAN(&SimpleAct::Disconnected);
         }
-        case WIFI_UP: {
-        	EVENT(e);
-        	return Q_TRAN(&SimpleAct::Started);
-        }
+//        case WIFI_UP: {
+//        	EVENT(e);
+//        	return Q_TRAN(&SimpleAct::Started);
+//        }
     }
     return Q_SUPER(&SimpleAct::Root);
 }
@@ -367,6 +368,7 @@ QState SimpleAct::Disconnected(SimpleAct * const me, QEvt const * const e) {
 		}
 		case Q_EXIT_SIG: {
 			EVENT(e);
+			me->m_retryTimer.Stop();
 			return Q_HANDLED();
 		}
 		case RETRY_TIMER: {
@@ -391,6 +393,7 @@ QState SimpleAct::Connected(SimpleAct * const me, QEvt const * const e) {
 	switch(e->sig) {
 		case Q_ENTRY_SIG: {
 			EVENT(e);
+			//me->m_stateTimer.Start(15000);
 			return Q_HANDLED();
 		}
 		case Q_EXIT_SIG: {
@@ -413,6 +416,9 @@ QState SimpleAct::Unregistered(SimpleAct * const me, QEvt const * const e) {
 	switch(e->sig) {
 		case Q_ENTRY_SIG: {
 			EVENT(e);
+			LOG("fucking kill me!!!!!!!");
+			//me->m_retryTimer.Start(5000);
+			me->m_stateTimer.Start(5000);
 			char handshake[100];
 			snprintf(handshake, sizeof(handshake), "SENSOR-CONNECT**%s", me->getMacAddress());
 			LOG("HANDSHAKE: %s", handshake);
@@ -422,6 +428,7 @@ QState SimpleAct::Unregistered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case Q_EXIT_SIG: {
 			EVENT(e);
+			me->m_stateTimer.Stop();
 			return Q_HANDLED();
 		}
 		case STATE_TIMER: {
@@ -432,7 +439,12 @@ QState SimpleAct::Unregistered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case SHOCK_SENSOR_HANDSHAKE_CFM: {
 			EVENT(e);
+			me->m_retryTimer.Stop();
 			return Q_TRAN(&SimpleAct::Registered);
+		}
+		case RETRY_TIMER: {
+			EVENT(e);
+			return Q_TRAN(&SimpleAct::Disconnected);
 		}
 	}
 	return Q_SUPER(&SimpleAct::Connected);
@@ -442,7 +454,7 @@ QState SimpleAct::Registered(SimpleAct * const me, QEvt const * const e) {
 	switch(e->sig) {
 		case Q_ENTRY_SIG: {
 			EVENT(e);
-
+			me->m_stateTimer.Start(15000);
 			return Q_HANDLED();
 		}
 		case Q_EXIT_SIG: {
@@ -465,6 +477,16 @@ QState SimpleAct::Registered(SimpleAct * const me, QEvt const * const e) {
 			EVENT(e);
 			Evt* evt = new ShockSensorTestEvent(GET_HSMN(), GET_HSMN(), GEN_SEQ());
 			me->PostSync(evt);
+			return Q_HANDLED();
+		}
+		case STATE_TIMER: {
+			EVENT(e);
+			char msg[100];
+			snprintf(msg, sizeof(msg), "SENSOR-HEARTBEAT");
+			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), GEN_SEQ(), msg);
+			Fw::Post(evt);
+			me->m_stateTimer.Start(15000);
+			return Q_HANDLED();
 		}
 	}
 	return Q_SUPER(&SimpleAct::Connected);
@@ -485,14 +507,18 @@ QState SimpleAct::Listening(SimpleAct * const me, QEvt const * const e) {
 			EVENT(e);
 			char msg[100];
 			snprintf(msg, sizeof(msg), "SENSOR-SHOCK-EVENT**%s", me->getMacAddress());
-			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), GEN_SEQ(), msg);
+			me->m_shockEventSeq = GEN_SEQ();
+			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), me->m_shockEventSeq, msg);
 			Fw::Post(evt);
 			return Q_HANDLED();
 		}
 		case WIFI_SEND_CFM: {
 			EVENT(e);
-			Evt* evt = new Evt(TRIGGERED, GET_HSMN());
-			me->PostSync(evt);
+			WifiSendCfm const &cfm = static_cast<WifiSendCfm const &>(*e);
+			if(cfm.GetSeq() == me->m_shockEventSeq) {
+				Evt* evt = new Evt(TRIGGERED, GET_HSMN());
+				me->PostSync(evt);
+			}
 			return Q_HANDLED();
 		}
 		case TRIGGERED: {
