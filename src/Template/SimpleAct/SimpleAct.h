@@ -71,9 +71,6 @@ protected:
     Timer m_stateTimer;
     Timer m_retryTimer;
 
-    bool m_macAddressSet;
-    bool m_sensorEnabled;
-
     Sequence m_shockEventSeq;
 
     char m_macAddress[50];

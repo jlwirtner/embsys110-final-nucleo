@@ -72,8 +72,7 @@ static char const * const interfaceEvtName[] = {
 SimpleAct::SimpleAct() :
     Active((QStateHandler)&SimpleAct::InitialPseudoState, SIMPLE_ACT, "SIMPLE_ACT"),
     m_stateTimer(GetHsm().GetHsmn(), STATE_TIMER),
-	m_retryTimer(GetHsm().GetHsmn(), RETRY_TIMER), m_macAddressSet(false),
-	m_sensorEnabled(false), m_shockEventSeq(0) {
+	m_retryTimer(GetHsm().GetHsmn(), RETRY_TIMER), m_shockEventSeq(0) {
 	STRING_COPY(m_macAddress, INIT_MAC_ADDRESS, sizeof(m_macAddress));
     SET_EVT_NAME(SIMPLE_ACT);
 }
@@ -145,25 +144,23 @@ QState SimpleAct::Starting(SimpleAct * const me, QEvt const * const e) {
         case Q_ENTRY_SIG: {
             EVENT(e);
             uint32_t timeout = SimpleActStartReq::TIMEOUT_MS;
-            //FW_ASSERT(timeout > XxxStartReq::TIMEOUT_MS);
             FW_ASSERT(timeout > SensorAccelGyroOnReq::TIMEOUT_MS);
+
             me->m_stateTimer.Start(timeout);
             me->GetHsm().ResetOutSeq();
-            //Evt *evt = new XxxStartReq(XXX, GET_HSMN(), GEN_SEQ());
-            //me->GetHsm().SaveOutSeq(*evt);
-            //Fw::Post(evt);
-            // For testing, send DONE immediately. Do not use PostSync in entry action.
-            //Evt *evt = new Evt(DONE, GET_HSMN());
-            //Fw::Post(evt);
+
             Evt* evt = new SensorAccelGyroOnReq(IKS01A1_ACCEL_GYRO, GET_HSMN(), GEN_SEQ(), NULL);
 			me->GetHsm().SaveOutSeq(*evt);
 			Fw::Post(evt);
+
 			evt = new WifiMacAddressReq(WIFI, GET_HSMN(), GEN_SEQ());
 			me->GetHsm().SaveOutSeq(*evt);
 			Fw::Post(evt);
+
 			evt = new GpioInStartReq(USER_BTN, GET_HSMN(), GEN_SEQ());
 			me->GetHsm().SaveOutSeq(*evt);
 			Fw::Post(evt);
+
             return Q_HANDLED();
         }
         case Q_EXIT_SIG: {
@@ -172,25 +169,12 @@ QState SimpleAct::Starting(SimpleAct * const me, QEvt const * const e) {
             me->GetHsm().ClearInSeq();
             return Q_HANDLED();
         }
-        /*
-        case XXX_START_CFM: {
-            EVENT(e);
-            ErrorEvt const &cfm = ERROR_EVT_CAST(*e);
-            bool allReceived;
-            if (!me->GetHsm().HandleCfmRsp(cfm, allReceived)) {
-                Evt *evt = new Failed(GET_HSMN(), cfm.GetError(), cfm.GetOrigin(), cfm.GetReason());
-                me->PostSync(evt);
-            } else if (allReceived) {
-                Evt *evt = new Evt(DONE, GET_HSMN());
-                me->PostSync(evt);
-            }
-            return Q_HANDLED();
-        }
-        */
         case WIFI_MAC_ADDRESS_CFM: {
         	EVENT(e);
+
         	WifiMacAddressCfm* macCfm = (WifiMacAddressCfm*)e;
         	STRING_COPY(me->m_macAddress, macCfm->getMacAddress(), sizeof(me->m_macAddress));
+
         	ErrorEvt const &cfm = ERROR_EVT_CAST(*e);
 			bool allReceived;
 			if (!me->GetHsm().HandleCfmRsp(cfm, allReceived)) {
@@ -200,12 +184,6 @@ QState SimpleAct::Starting(SimpleAct * const me, QEvt const * const e) {
 			} else if (allReceived) {
 				LOG("sending done...");
 				Evt *evt = new Evt(DONE, GET_HSMN());
-				me->PostSync(evt);
-			}
-			LOG("so sad");
-			me->m_macAddressSet = true;
-			if(me->m_sensorEnabled) {
-				Evt* evt = new Evt(DONE, GET_HSMN());
 				me->PostSync(evt);
 			}
 			return Q_HANDLED();
@@ -221,11 +199,6 @@ QState SimpleAct::Starting(SimpleAct * const me, QEvt const * const e) {
 				me->PostSync(evt);
 			} else if (allReceived) {
 				Evt *evt = new Evt(DONE, GET_HSMN());
-				me->PostSync(evt);
-			}
-			me->m_sensorEnabled = true;
-			if(me->m_macAddressSet) {
-				Evt* evt = new Evt(DONE, GET_HSMN());
 				me->PostSync(evt);
 			}
 			return Q_HANDLED();
@@ -259,21 +232,18 @@ QState SimpleAct::Stopping(SimpleAct * const me, QEvt const * const e) {
         case Q_ENTRY_SIG: {
             EVENT(e);
             uint32_t timeout = SimpleActStopReq::TIMEOUT_MS;
-            //FW_ASSERT(timeout > XxxStopReq::TIMEOUT_MS);
+
             me->m_stateTimer.Start(timeout);
             me->GetHsm().ResetOutSeq();
-            //Evt *evt = new XxxStopReq(XXX, GET_HSMN(), GEN_SEQ());
-            //me->GetHsm().SaveOutSeq(*evt);
-            //Fw::Post(evt);
-            // For testing, send DONE immediately. Do not use PostSync in entry action.
-            //Evt *evt = new Evt(DONE, GET_HSMN());
-            //Fw::Post(evt);
+
             Evt* evt = new SensorAccelGyroOffReq(IKS01A1_ACCEL_GYRO, GET_HSMN(), GEN_SEQ());
 			me->GetHsm().SaveOutSeq(*evt);
 			Fw::Post(evt);
+
 			evt = new GpioInStopReq(USER_BTN, GET_HSMN(), GEN_SEQ());
 			me->GetHsm().SaveOutSeq(*evt);
 			Fw::Post(evt);
+
             return Q_HANDLED();
         }
         case Q_EXIT_SIG: {
@@ -288,21 +258,6 @@ QState SimpleAct::Stopping(SimpleAct * const me, QEvt const * const e) {
             me->GetHsm().Defer(e);
             return Q_HANDLED();
         }
-        /*
-        case XXX_STOP_CFM: {
-            EVENT(e);
-            ErrorEvt const &cfm = ERROR_EVT_CAST(*e);
-            bool allReceived;
-            if (!me->GetHsm().HandleCfmRsp(cfm, allReceived)) {
-                Evt *evt = new Failed(GET_HSMN(), cfm.GetError(), cfm.GetOrigin(), cfm.GetReason());
-                me->PostSync(evt);
-            } else if (allReceived) {
-                Evt *evt = new Evt(DONE, GET_HSMN());
-                me->PostSync(evt);
-            }
-            return Q_HANDLED();
-        }
-        */
         case GPIO_IN_STOP_CFM:
         case SENSOR_ACCEL_GYRO_OFF_CFM: {
 			EVENT(e);
@@ -393,7 +348,6 @@ QState SimpleAct::Connected(SimpleAct * const me, QEvt const * const e) {
 	switch(e->sig) {
 		case Q_ENTRY_SIG: {
 			EVENT(e);
-			//me->m_stateTimer.Start(15000);
 			return Q_HANDLED();
 		}
 		case Q_EXIT_SIG: {
@@ -416,14 +370,15 @@ QState SimpleAct::Unregistered(SimpleAct * const me, QEvt const * const e) {
 	switch(e->sig) {
 		case Q_ENTRY_SIG: {
 			EVENT(e);
-			LOG("fucking kill me!!!!!!!");
-			//me->m_retryTimer.Start(5000);
 			me->m_stateTimer.Start(5000);
+
 			char handshake[100];
 			snprintf(handshake, sizeof(handshake), "SENSOR-CONNECT**%s", me->getMacAddress());
 			LOG("HANDSHAKE: %s", handshake);
+
 			Evt * evt = new WifiSendReq(WIFI, GET_HSMN(), GEN_SEQ(), handshake);
 			Fw::Post(evt);
+
 			return Q_HANDLED();
 		}
 		case Q_EXIT_SIG: {
@@ -556,24 +511,5 @@ QState SimpleAct::Triggered(SimpleAct * const me, QEvt const * const e) {
 	}
 	return Q_SUPER(&SimpleAct::Registered);
 }
-
-/*
-QState SimpleAct::MyState(SimpleAct * const me, QEvt const * const e) {
-    switch (e->sig) {
-        case Q_ENTRY_SIG: {
-            EVENT(e);
-            return Q_HANDLED();
-        }
-        case Q_EXIT_SIG: {
-            EVENT(e);
-            return Q_HANDLED();
-        }
-        case Q_INIT_SIG: {
-            return Q_TRAN(&SimpleAct::SubState);
-        }
-    }
-    return Q_SUPER(&SimpleAct::SuperState);
-}
-*/
 
 } // namespace APP
