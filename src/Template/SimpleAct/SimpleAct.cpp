@@ -418,8 +418,10 @@ QState SimpleAct::Registered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case SHOCK_SENSOR_TEST_EVENT: {
 			EVENT(e);
+
 			char msg[100];
 			snprintf(msg, sizeof(msg), "SENSOR-TEST-EVENT**%s", me->getMacAddress());
+
 			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), GEN_SEQ(), msg);
 			Fw::Post(evt);
 			return Q_HANDLED();
@@ -432,10 +434,13 @@ QState SimpleAct::Registered(SimpleAct * const me, QEvt const * const e) {
 		}
 		case STATE_TIMER: {
 			EVENT(e);
+
 			char msg[100];
 			snprintf(msg, sizeof(msg), "SENSOR-HEARTBEAT");
+
 			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), GEN_SEQ(), msg);
 			Fw::Post(evt);
+
 			me->m_stateTimer.Start(15000);
 			return Q_HANDLED();
 		}
@@ -456,9 +461,12 @@ QState SimpleAct::Listening(SimpleAct * const me, QEvt const * const e) {
 		}
 		case SHOCK_SENSOR_SHOCK_EVENT: {
 			EVENT(e);
+
 			char msg[100];
 			snprintf(msg, sizeof(msg), "SENSOR-SHOCK-EVENT**%s", me->getMacAddress());
+
 			me->m_shockEventSeq = GEN_SEQ();
+
 			Evt* evt = new WifiSendReq(WIFI, GET_HSMN(), me->m_shockEventSeq, msg);
 			Fw::Post(evt);
 			return Q_HANDLED();
